@@ -1,0 +1,29 @@
+{
+  "name": "zrh-wait-times",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev --test-scheduled",
+    "deploy": "wrangler deploy --var APP_VERSION:\"$(git rev-parse --short HEAD 2>/dev/null || echo unknown)\" --var APP_BUILT_AT:\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"",
+    "tail": "wrangler tail --format=pretty",
+    "db:create": "wrangler d1 create zrh-wait-times",
+    "db:schema:remote": "wrangler d1 execute zrh-wait-times --remote --file=schema.sql",
+    "db:schema:local": "wrangler d1 execute zrh-wait-times --local --file=schema.sql",
+    "db:peek:remote": "wrangler d1 execute zrh-wait-times --remote --command=\"SELECT ts, endpoint, status, error, substr(raw,1,400) FROM polls ORDER BY ts DESC LIMIT 5;\"",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "biome lint .",
+    "typecheck": "tsc --noEmit -p jsconfig.json",
+    "test:browser": "playwright test",
+    "test:browser:install": "playwright install --with-deps chromium"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.15",
+    "@cloudflare/vitest-pool-workers": "^0.16.6",
+    "@cloudflare/workers-types": "^4.20260518.1",
+    "@playwright/test": "^1.60.0",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.6",
+    "wrangler": "^3.90.0"
+  }
+}

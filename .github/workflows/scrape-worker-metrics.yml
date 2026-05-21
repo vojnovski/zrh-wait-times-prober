@@ -1,0 +1,40 @@
+# Scrape the worker's /healthz?format=prom and push the values to
+# Grafana Cloud's Prometheus via Influx line protocol.
+#
+# Triggered exclusively by `workflow_dispatch` — the CF worker
+# `dispatchMetricsScrape()` (in vojnovski/zrh-wait-times's src/worker.js)
+# fires this on every */5 cron tick. GitHub's `on: schedule:` trigger
+# is throttled to ~4 % of expected ticks on user accounts (private OR
+# public) so we don't use it. CF cron drives the cadence.
+#
+# Why this workflow lives in a public sister repo rather than in
+# zrh-wait-times itself: GH Actions bills runtime rounded up to the
+# nearest minute per job. Each scrape takes ~10 s wall-clock; at
+# true */5 cadence that's 288 jobs/day × 1 min = 8,640 min/month,
+# 4x over the private free-tier cap. Public repos get unlimited
+# free Actions minutes, so hosting these scheduled workflows here
+# avoids the overage.
+
+name: scrape-worker-metrics
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  # Drop overlapping runs rather than queue them; a stale scrape is
+  # less useful than the next-scheduled one.
+  group: scrape-worker-metrics
+  cancel-in-progress: true
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/scrape-worker-metrics.py
+        env:
+          WORKER_METRICS_URL: https://zrh.vv.mk/healthz?format=prom
+          GRAFANA_PROM_URL:   ${{ secrets.GRAFANA_PROM_URL }}
+          GRAFANA_PROM_USER:  ${{ secrets.GRAFANA_PROM_USER }}
+          GRAFANA_PROM_TOKEN: ${{ secrets.GRAFANA_PROM_TOKEN }}

@@ -1,0 +1,81 @@
+# Playwright CUJ probes against the production app at zrh.vv.mk.
+# Pushes results to Grafana tagged env=prod; alert rules in
+# vojnovski/zrh-wait-times's docs/grafana/alerts.yaml fire on
+# `playwright_probe_success{env="prod"} == 0`, so a regression here
+# pages via Pushover.
+#
+# Triggered exclusively by `workflow_dispatch` — the CF worker
+# `dispatchPlaywrightProbes()` (in vojnovski/zrh-wait-times's
+# src/worker.js) fires this every */5 cron tick when minute % 30 == 0,
+# preserving the */30 target cadence. GitHub's `on: schedule:` is
+# throttled to ~4 % of expected ticks so we don't use it.
+#
+# Lives in this public sister repo rather than in the main private
+# repo because GH Actions minutes are billed rounded-up-per-job and
+# Playwright runs ~2 min each — true */30 cadence overruns the
+# private free-tier cap. Public repos get unlimited free minutes.
+#
+# Grafana is the sole Pushover caller; this workflow just pushes
+# metrics. Pushover lives in Alertmanager, not here.
+
+name: Browser probes (scheduled)
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  playwright:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright probes against prod
+        env:
+          PROBE_URL: ${{ vars.PROBE_URL || 'https://zrh.vv.mk' }}
+        run: npx playwright test --reporter=json > results.json
+        continue-on-error: true  # don't fail the job before we push
+
+      - name: Push results to Grafana
+        env:
+          GRAFANA_PROM_URL: ${{ secrets.GRAFANA_PROM_URL }}
+          GRAFANA_PROM_USER: ${{ secrets.GRAFANA_PROM_USER }}
+          GRAFANA_PROM_TOKEN: ${{ secrets.GRAFANA_PROM_TOKEN }}
+        run: |
+          if [ -z "$GRAFANA_PROM_TOKEN" ]; then
+            echo "Grafana secrets not set — skipping push. (One-time setup; see docs/grafana/setup.md.)"
+            exit 0
+          fi
+          ./scripts/push-playwright-to-grafana.sh results.json prod
+
+      - name: Upload trace on failure
+        if: always()  # uploaded even on success for the first few runs while we tune
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-trace-cron-${{ github.run_id }}
+          path: |
+            test-results/
+            results.json
+          retention-days: 3
+
+      - name: Exit with Playwright's status
+        # Mirror the test step's exit code so the GH Actions UI shows
+        # the run as failed when probes failed — even though we
+        # already pushed metrics. Pushover comes from Grafana, not
+        # from this step.
+        run: |
+          if grep -q '"status":"failed"' results.json 2>/dev/null; then
+            echo "Playwright reported failed tests; see uploaded trace."
+            exit 1
+          fi
