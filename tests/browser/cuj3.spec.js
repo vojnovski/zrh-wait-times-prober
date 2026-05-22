@@ -11,14 +11,17 @@ test("CUJ-3 Patterns day-chip toggle", async ({ page }) => {
   await page.click('button[data-tab="patterns"]');
   await expect(page.locator('section.tab[data-tab="patterns"].active')).toBeVisible();
 
-  // Wait for the day chips to render. There are 7 (one per dow).
-  const chips = page.locator(".day-chip");
+  // The Patterns day-chip row is server-rendered with 7 buttons (one
+  // per dow). Scope the locator to `#dayChips` because Gate close also
+  // renders a `.day-chip` row — an unscoped `.day-chip` would match 14
+  // elements and the count assertion would fail immediately.
+  const chips = page.locator('#dayChips .day-chip');
   await expect(chips).toHaveCount(7, { timeout: 10_000 });
 
   // The Saturday chip starts active (aria-pressed="true"). Click it
   // off; assert aria-pressed flips to "false". The heatmap re-renders
   // in response (visible state change documented by the chip itself).
-  const satChip = page.locator('.day-chip[data-dow="6"]');
+  const satChip = page.locator('#dayChips .day-chip[data-dow="6"]');
   await expect(satChip).toHaveAttribute("aria-pressed", "true");
   await satChip.click();
   await expect(satChip).toHaveAttribute("aria-pressed", "false");

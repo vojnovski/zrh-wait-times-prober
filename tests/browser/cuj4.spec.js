@@ -18,7 +18,14 @@ test("CUJ-4 Gate-close by-flight drill-down", async ({ page }) => {
   // (cold-start state), there's nothing to click — accept that
   // and pass; a real user would see the same "Collecting data..."
   // empty state and not be alarmed.
-  const rows = page.locator('section.tab[data-tab="gateclose"] tbody tr');
+  //
+  // Scope to `#gateCloseFlights` specifically — the gateclose tab
+  // ALSO renders a `<table>` for the by-carrier breakdown above this
+  // one, and an unscoped `tbody tr` selector matches rows in both.
+  // The by-carrier table is click-filterable, not click-expandable,
+  // so a `rows.first().click()` would land on a carrier row and the
+  // drill-down assertion below would time out.
+  const rows = page.locator('#gateCloseFlights tbody tr');
   try {
     await expect(rows.first()).toBeVisible({ timeout: 15_000 });
   } catch {
@@ -29,11 +36,9 @@ test("CUJ-4 Gate-close by-flight drill-down", async ({ page }) => {
     return;
   }
 
-  // Click the first row. The drill-down should expand below it
-  // (a sibling row with the per-event detail). The exact markup
-  // varies but at minimum a new row should appear or an existing
-  // hidden row become visible — we count rows before and after to
-  // detect the expansion.
+  // Click the first by-flight row. Expansion injects a sibling
+  // `<tr class="gc-detail">` immediately below it (with the per-event
+  // drill-down), so the row count grows by 1.
   const rowCountBefore = await rows.count();
   await rows.first().click();
   await expect.poll(
