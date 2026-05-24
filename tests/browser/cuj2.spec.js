@@ -18,12 +18,14 @@ test("CUJ-2 How-long search + estimate flow", async ({ page }) => {
   const ac = page.locator("#howLongAC");
   await expect(ac).toBeVisible({ timeout: 5_000 });
 
-  // First option should be the flight we typed. Click it; the
-  // estimate panel should populate. The exact selector for the
-  // result panel depends on the app.js render; we look for a
-  // visible "min" suffix on the recommended-arrival total, which is
-  // the most stable element regardless of the panel's surrounding
-  // markup.
+  // First option should be the upcoming flight we typed (the search
+  // ranks already-departed rows last). Click it; the estimate panel
+  // (#howLongDetail) should populate with a per-leg breakdown and a
+  // "X MIN TOTAL" headline. Scope the /min/ match to #howLongDetail —
+  // a page-wide getByText(/min/i) also matches hidden status chrome
+  // (e.g. the header's "none in N min" freshness span), and .first()
+  // would grab that instead of the estimate.
   await ac.locator('[role="option"]').first().click();
-  await expect(page.getByText(/min/i).first()).toBeVisible({ timeout: 10_000 });
+  const detail = page.locator("#howLongDetail");
+  await expect(detail.getByText(/min/i).first()).toBeVisible({ timeout: 10_000 });
 });
