@@ -32,6 +32,13 @@ test("CUJ-1 card click pushes history; browser back returns to Now", async ({ pa
   const firstCard = page.locator("#cards .card").first();
   await expect(firstCard).toBeVisible({ timeout: 10_000 });
 
+  // Overnight (ZRH curfew ~23:15-05:00 local) the airport is closed and
+  // the Now cards are intentionally non-interactive
+  // (#cards.cards-closed .card { pointer-events: none }); a click then
+  // hit-tests through to .now-group-grid and burns the 30s timeout. Skip.
+  const closed = (await page.locator("#closureBanner:visible").count()) > 0;
+  test.skip(closed, "airport closed — Now cards are non-interactive overnight");
+
   // Click a card — this should navigate to History (not via the tab
   // bar) and push a history entry.
   await firstCard.click();
