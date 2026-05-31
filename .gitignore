@@ -1,0 +1,12 @@
+# Node / npm install artifacts
+node_modules/
+package-lock.json
+
+# Playwright run output (traces, screenshots, videos)
+test-results/
+playwright-report/
+
+# Throwaway local-verification configs / results
+verify-results.json
+results.json
+pw.verify.config.js
