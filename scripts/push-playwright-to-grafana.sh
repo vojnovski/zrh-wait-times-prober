@@ -62,15 +62,7 @@ lines=$(node -e '
         const cuj = `cuj${titleMatch[1]}`;
         const test = (spec.tests || [])[0] || {};
         const result = (test.results || [])[0] || {};
-        // A "skipped" status means the journey was not applicable this run:
-        // e.g. the CUJ-1 card drill-down does not exist while ZRH is closed
-        // overnight, so the spec calls test.skip(). Playwright marks such a
-        // spec ok:true with result.status "skipped" — a healthy worker, not
-        // a failure — so it must export 1. Only a genuine failure
-        // (status "failed" or "timedOut") exports 0 and may burn the SLO.
-        // (NB: this comment lives inside a single-quoted `node -e` program,
-        // so it must contain no apostrophes.)
-        const ok = (result.status === "passed" || result.status === "skipped") ? 1 : 0;
+        const ok = result.status === "passed" ? 1 : 0;
         const durationMs = Number(result.duration ?? 0);
         acc.push(`playwright_probe_success,cuj=${cuj},env=${env} value=${ok}`);
         acc.push(`playwright_probe_duration_seconds,cuj=${cuj},env=${env} value=${(durationMs / 1000).toFixed(3)}`);
