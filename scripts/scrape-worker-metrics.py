@@ -80,7 +80,15 @@ def fetch_metrics(url: str) -> str:
     # No auth header: /healthz?format=prom is public (every value is
     # also visible in the public Grafana dashboard, so a token added
     # no real protection -- see worker comments on healthzAsProm).
-    req = urllib.request.Request(url)
+    #
+    # Explicit User-Agent: the vv.mk zone's Browser Integrity Check
+    # 403s (CF error 1010) urllib's default `Python-urllib/3.x`
+    # signature — observed blocking every scrape 2026-07-30; any
+    # descriptive UA passes. Keep targeting the canonical URL (owner
+    # decision 2026-07-30: do NOT repoint at the workers.dev origin).
+    req = urllib.request.Request(
+        url, headers={"User-Agent": "zrh-metrics-scraper/1.0"}
+    )
     try:
         with urllib.request.urlopen(req, timeout=30) as r:
             return r.read().decode("utf-8", errors="replace")
